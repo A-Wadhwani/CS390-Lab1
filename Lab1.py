@@ -21,8 +21,8 @@ IMAGE_SIZE = 784
 
 # Use these to set the algorithm to use.
 # ALGORITHM = "guesser"
-ALGORITHM = "custom_net"
-# ALGORITHM = "tf_net"
+# ALGORITHM = "custom_net"
+ALGORITHM = "tf_net"
 
 class NeuralNetwork_2Layer:
     def __init__(self, inputSize, outputSize, neuronsPerLayer, learningRate=0.01):
@@ -159,12 +159,20 @@ def trainModel(data):
     elif ALGORITHM == "custom_net":
         print("Building and training Custom_NN.")
         model = NeuralNetwork_2Layer(IMAGE_SIZE, NUM_CLASSES, 30, learningRate=0.07)
-        model.train(xTrain, yTrain)
+        model.train(xTrain, yTrain, epochs=5000, minibatches=True, mbs=128)
         return model
     elif ALGORITHM == "tf_net":
         print("Building and training TF_NN.")
-        print("Not yet implemented.")  # TODO: Write code to build and train your keras neural net.
-        return None
+        model = tf.keras.models.Sequential([
+            tf.keras.layers.Flatten(),
+            tf.keras.layers.Dense(128, activation=tf.nn.sigmoid),
+            tf.keras.layers.Dense(128, activation=tf.nn.sigmoid),
+            tf.keras.layers.Dense(128, activation=tf.nn.sigmoid),
+            tf.keras.layers.Dense(10, activation=tf.nn.softmax)
+        ])
+        model.compile(optimizer='Adam', loss='categorical_crossentropy', metrics=['accuracy'])
+        model.fit(xTrain, yTrain, epochs=40, batch_size=128)
+        return model
     else:
         raise ValueError("Algorithm not recognized.")
 
@@ -177,8 +185,14 @@ def runModel(data, model):
         return model.predict(data)
     elif ALGORITHM == "tf_net":
         print("Testing TF_NN.")
-        print("Not yet implemented.")  # TODO: Write code to run your keras neural net.
-        return None
+        results = model.predict(data)
+        # Postprocessing to final 1 and 0 outputs
+        ans = []
+        for entry in results:
+            pred = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+            pred[np.argmax(entry)] = 1
+            ans.append(pred)
+        return np.array(ans)
     else:
         raise ValueError("Algorithm not recognized.")
 
@@ -187,7 +201,8 @@ def evalResults(data, preds):  # TODO: Add F1 score confusion matrix here.
     xTest, yTest = data
     acc = 0
     for i in range(preds.shape[0]):
-        if np.array_equal(preds[i], yTest[i]):   acc = acc + 1
+        if np.array_equal(preds[i], yTest[i]):
+            acc = acc + 1
     accuracy = acc / preds.shape[0]
     print("Classifier algorithm: %s" % ALGORITHM)
     print("Classifier accuracy: %f%%" % (accuracy * 100))
