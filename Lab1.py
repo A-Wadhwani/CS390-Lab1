@@ -22,7 +22,9 @@ IMAGE_SIZE = 784
 # Use these to set the algorithm to use.
 # ALGORITHM = "guesser"
 # ALGORITHM = "custom_net"
-ALGORITHM = "tf_net"
+# ALGORITHM = "tf_net"
+ALGORITHM = "tf_conv_net" # Gets us to 99% accuracy
+
 
 class NeuralNetwork_2Layer:
     def __init__(self, inputSize, outputSize, neuronsPerLayer, learningRate=0.01):
@@ -85,7 +87,6 @@ class NeuralNetwork_2Layer:
             l1delta = l1error * self.__sigmoidDerivative(np.dot(x, self.W1))
             l1adj = self.lr * x.transpose().dot(l1delta)
             self.W1 = self.W1 - l1adj
-
 
     # Forward pass.
     def __forward(self, input):
@@ -164,14 +165,44 @@ def trainModel(data):
     elif ALGORITHM == "tf_net":
         print("Building and training TF_NN.")
         model = tf.keras.models.Sequential([
-            tf.keras.layers.Flatten(),
-            tf.keras.layers.Dense(128, activation=tf.nn.sigmoid),
-            tf.keras.layers.Dense(128, activation=tf.nn.sigmoid),
-            tf.keras.layers.Dense(128, activation=tf.nn.sigmoid),
+            tf.keras.layers.Dense(256, activation=tf.nn.sigmoid),
             tf.keras.layers.Dense(10, activation=tf.nn.softmax)
         ])
         model.compile(optimizer='Adam', loss='categorical_crossentropy', metrics=['accuracy'])
         model.fit(xTrain, yTrain, epochs=40, batch_size=128)
+        return model
+    elif ALGORITHM == "tf_conv_net":
+        print("Building and training TF_CONV_NN.")
+        xTrain = xTrain.reshape((xTrain.shape[0], 28, 28))
+        xTrain = np.expand_dims(xTrain, -1)
+        model = tf.keras.models.Sequential([
+            tf.keras.layers.Conv2D(32,
+                                   kernel_size=3,
+                                   activation=tf.nn.relu,
+                                   input_shape=(28, 28, 1)),
+            tf.keras.layers.MaxPool2D(pool_size=2,
+                                      padding='valid'),
+            tf.keras.layers.Dropout(0.2),
+            tf.keras.layers.Conv2D(64,
+                                   kernel_size=3,
+                                   activation=tf.nn.relu),
+            tf.keras.layers.MaxPool2D(pool_size=2,
+                                      padding='valid'),
+            tf.keras.layers.Flatten(),
+            tf.keras.layers.Dense(10, activation=tf.nn.softmax)
+        ])
+
+        def scheduler(epoch, lr):
+            if epoch < 3:
+                return lr
+            elif epoch < 6:
+                return 0.005
+            return 0.001
+
+        model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=0.01), loss='categorical_crossentropy',
+                      metrics=['accuracy'])
+        reduce_lr = tf.keras.callbacks.LearningRateScheduler(scheduler)
+        model.fit(xTrain, yTrain, epochs=10, callbacks=[reduce_lr], batch_size=256)
         return model
     else:
         raise ValueError("Algorithm not recognized.")
@@ -193,17 +224,32 @@ def runModel(data, model):
             pred[np.argmax(entry)] = 1
             ans.append(pred)
         return np.array(ans)
+    elif ALGORITHM == "tf_conv_net":
+        print("Testing TF_CONV_NN.")
+        data = data.reshape((data.shape[0], 28, 28))
+        data = np.expand_dims(data, -1)
+        results = model.predict(data)
+        # Postprocessing to final 1 and 0 outputs
+        ans = []
+        for entry in results:
+            pred = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+            pred[np.argmax(entry)] = 1
+            ans.append(pred)
+        return np.array(ans)
     else:
         raise ValueError("Algorithm not recognized.")
 
 
 def evalResults(data, preds):  # TODO: Add F1 score confusion matrix here.
     xTest, yTest = data
+    # Accuracy
     acc = 0
     for i in range(preds.shape[0]):
         if np.array_equal(preds[i], yTest[i]):
             acc = acc + 1
     accuracy = acc / preds.shape[0]
+
+    # Confusion Matrix
     print("Classifier algorithm: %s" % ALGORITHM)
     print("Classifier accuracy: %f%%" % (accuracy * 100))
     print()
