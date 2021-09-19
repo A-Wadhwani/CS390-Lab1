@@ -289,4 +289,11 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    # Storing results in file for later reference:
+    sys.stdout = open('output.txt', 'w')
+    for i in ["guesser", "custom_net", "tf_net", "tf_conv_net"]:
+        ALGORITHM = i
+        print("----------START OF %s---------------" % ALGORITHM.upper())
+        main()
+        print("-------------END OF %s---------------" % ALGORITHM.upper())
+    sys.stdout.close()
