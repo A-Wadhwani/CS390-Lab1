@@ -2,7 +2,11 @@ import os
 import numpy as np
 import tensorflow as tf
 from tensorflow import keras
+import seaborn as sns
+import sys
+import matplotlib.pyplot as plt
 from tensorflow.keras.utils import to_categorical
+from sklearn.metrics import confusion_matrix
 import random
 
 # Setting random seeds to keep everything deterministic.
@@ -22,8 +26,10 @@ IMAGE_SIZE = 784
 # Use these to set the algorithm to use.
 # ALGORITHM = "guesser"
 # ALGORITHM = "custom_net"
-# ALGORITHM = "tf_net"
-ALGORITHM = "tf_conv_net" # Gets us to 99% accuracy
+ALGORITHM = "tf_net"
+
+
+# ALGORITHM = "tf_conv_net" # Gets us to 99% accuracy
 
 
 class NeuralNetwork_2Layer:
@@ -169,7 +175,7 @@ def trainModel(data):
             tf.keras.layers.Dense(10, activation=tf.nn.softmax)
         ])
         model.compile(optimizer='Adam', loss='categorical_crossentropy', metrics=['accuracy'])
-        model.fit(xTrain, yTrain, epochs=40, batch_size=128)
+        model.fit(xTrain, yTrain, epochs=20, batch_size=128)
         return model
     elif ALGORITHM == "tf_conv_net":
         print("Building and training TF_CONV_NN.")
@@ -240,6 +246,13 @@ def runModel(data, model):
         raise ValueError("Algorithm not recognized.")
 
 
+def flatten(data):
+    arr = []
+    for i in range(data.shape[0]):
+        arr.append(np.argmax(data[i]))
+    return arr
+
+
 def evalResults(data, preds):  # TODO: Add F1 score confusion matrix here.
     xTest, yTest = data
     # Accuracy
@@ -248,11 +261,21 @@ def evalResults(data, preds):  # TODO: Add F1 score confusion matrix here.
         if np.array_equal(preds[i], yTest[i]):
             acc = acc + 1
     accuracy = acc / preds.shape[0]
-
-    # Confusion Matrix
     print("Classifier algorithm: %s" % ALGORITHM)
     print("Classifier accuracy: %f%%" % (accuracy * 100))
-    print()
+
+    # Confusion Matrix
+    # Flattening prediction and data arrays to 1D arrays
+    yTest_f = flatten(yTest)
+    preds_f = flatten(preds)
+
+    conf_matrix = confusion_matrix(yTest_f, preds_f, labels=list(range(0, 9)))
+    sns.heatmap(conf_matrix, annot=True, fmt='d', cmap="YlGnBu", vmin=0, vmax=2000)
+    plt.title("Confusion Matrix for %s" % ALGORITHM, fontsize=20)
+    plt.xlabel("Predicted Label", fontsize=15)
+    plt.ylabel("True Label", fontsize=15)
+    plt.savefig('plots/%s.png' % ALGORITHM)
+    plt.close()
 
 
 # =========================<Main>================================================
